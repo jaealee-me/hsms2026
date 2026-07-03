@@ -103,30 +103,31 @@
             document.getElementById('treeLoading').classList.remove('hidden');
             document.getElementById('fileTree').classList.add('hidden');
             document.getElementById('folderPathDisplay').innerText = currentPath;
-
-            // 상위 이동 버튼 활성화/비활성화 제어 (보안 경계선 작동)
-            const upBtn = document.getElementById('upFolderBtn');
+        
             if (currentPath === ROOT_PATH) {
-                upBtn.disabled = true; // 현재 위치가 지정된 최상위 폴더면 '상위로' 이동 차단
+                document.getElementById('upFolderBtn').disabled = true;
             } else {
-                upBtn.disabled = false;
+                document.getElementById('upFolderBtn').disabled = false;
             }
-
+        
             const encodedPath = encodeURIComponent(currentPath);
             const apiUrl = `https://api.github.com/repos/${GITHUB_USERNAME}/${GITHUB_REPO}/contents/${encodedPath}`;
-
+        
             try {
-                const response = await fetch(apiUrl);
+                const response = await fetch(apiUrl, {
+                    headers: {
+                        // 💡여기에 방금 발급받은 토큰 코드를 넣어줍니다.
+                        "Authorization": "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"
+                    }
+                });
                 if (!response.ok) throw new Error('디렉토리를 읽어오지 못했습니다.');
                 const data = await response.json();
                 
-                // 가독성을 위해 폴더가 먼저 나오고 파일이 나오도록 정렬
                 data.sort((a, b) => (b.type === 'dir') - (a.type === 'dir'));
-                
                 renderExplorer(data);
             } catch (error) {
                 console.error(error);
-                document.getElementById('treeLoading').innerHTML = `<span class="text-rose-400 text-xs px-2"><i class="fa-solid fa-circle-exclamation"></i> 오류 발생</span>`;
+                document.getElementById('treeLoading').innerHTML = `<span class="text-rose-400 text-xs px-2"><i class="fa-solid fa-circle-exclamation"></i> 오류 발생 (잠시 후 다시 시도)</span>`;
             }
         }
 
