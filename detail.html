@@ -214,10 +214,10 @@
             const imgViewer = document.getElementById('imageViewer');
             const pdfViewer = document.getElementById('pdfViewer');
             const hint = document.getElementById('viewerHint');
-
+        
             currentSelectedFileUrl = downloadUrl;
             currentSelectedFileType = type;
-
+        
             if (type === 'image') {
                 pdfViewer.classList.add('hidden');
                 pdfViewer.src = "";
@@ -229,10 +229,13 @@
                 imgViewer.classList.add('hidden');
                 imgViewer.src = "";
                 
-                // 구글 PDF 뷰어 엔진 혹은 다이렉트 브라우저 임베딩 주소 연결
                 pdfViewer.classList.remove('hidden');
-                pdfViewer.src = downloadUrl; 
-                hint.classList.add('invisible'); // PDF는 내부 뷰어 툴바가 뜨므로 힌트 제거
+                hint.classList.add('invisible'); // PDF는 내부 뷰어 자체 툴바가 있으므로 힌트 제거
+                
+                // 💡 [핵심 수정] GitHub raw 주소를 구글 문서 뷰어 엔진과 결합하여 iframe에 주입합니다.
+                // 이렇게 하면 브라우저 보안 차단을 우회하여 PDF가 정상적으로 렌더링됩니다.
+                const googlePdfViewerUrl = `https://docs.google.com/gview?url=${encodeURIComponent(downloadUrl)}&embedded=true`;
+                pdfViewer.src = googlePdfViewerUrl;
             }
         }
 
