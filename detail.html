@@ -7,7 +7,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Pretendard:wght@400;600;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Pretendard:wght=400;600;700&display=swap');
         body { font-family: 'Pretendard', sans-serif; }
     </style>
 </head>
@@ -47,7 +47,7 @@
         <main class="flex-1 bg-slate-900 flex flex-col items-center justify-center p-6 relative overflow-hidden">
             <div id="noSelectMessage" class="text-slate-500 text-center">
                 <i class="fa-regular fa-folder-open text-5xl mb-3 block text-slate-600"></i>
-                <p class="text-sm">왼쪽 탐색기에서 확인하실 이미지나 PDF 파일을 선택해 주세요.</p>
+                <p class="text-sm">왼쪽 탐색기에서 확인하실 파일(이미지, PDF, MP4)을 선택해 주세요.</p>
             </div>
             
             <div id="viewerContainer" class="hidden w-full h-full flex flex-col items-center justify-center">
@@ -60,6 +60,11 @@
                     <img id="imageViewer" src="" alt="이미지 보기" onclick="openFullImage()" class="hidden max-w-full max-h-[75vh] object-contain cursor-zoom-in hover:scale-[1.01] transition-transform duration-200">
                     
                     <iframe id="pdfViewer" src="" class="hidden w-full h-full border-0 bg-slate-800"></iframe>
+
+                    <video id="videoViewer" controls class="hidden w-full h-full max-h-[75vh] bg-black focus:outline-none">
+                        <source id="videoSource" src="" type="video/mp4">
+                        사용하시는 브라우저는 동영상 재생을 지원하지 않습니다.
+                    </video>
                 </div>
             </div>
         </main>
@@ -73,15 +78,18 @@
     <script>
         // ⚙️ [필수 설정] 선생님의 GitHub 정보 입력
         const GITHUB_USERNAME = 'jaealee-me'; 
-        const GITHUB_REPO = 'hsms2026';     
+        const GITHUB_REPO = 'hsms2026';
+        
+        // 🔑 [선택 설정] API 가끔 오류 발생 차단용 토큰 (필요시 발급받아 기입하세요)
+        // const GITHUB_TOKEN = 'ghp_xxxx'; 
 
-        // 메뉴별 최초 진입 루트 경로 매핑 (이 경로의 윗단계는 절대 접근 불가)
+        // 메뉴별 최초 진입 루트 경로 매핑
         const CATEGORY_CONFIG = {
-            onboarding: { title: '3-STEP 사전 온보딩 활동', rootPath: 'images/3-STEP 사전 온보딩 활동/' },
-            training: { title: '교원 역량 강화', rootPath: 'images/교사 역량 강화 연수/' },
-            writing: { title: '교과별 성장글쓰기', rootPath: 'images/교과별 성장글쓰기/' },
-            project: { title: '1문항 다교과 융합 프로젝트', rootPath: 'images/1문항 다교과 융합형 프로젝트/' },
-            openclass: { title: '수업공개의 날', rootPath: 'images/연구학교 수업공개의 날/' }
+            onboarding: { title: '3-STEP 사전 온보딩 활동', rootPath: 'images/3-STEP 사전 온보딩 활동' },
+            training: { title: '교원 역량 강화', rootPath: 'images/교사 역량 강화 연수' },
+            writing: { title: '교과별 성장글쓰기', rootPath: 'images/교과별 성장글쓰기' },
+            project: { title: '1문항 다교과 융합 프로젝트', rootPath: 'images/1문항 다교과 융합형 프로젝트' },
+            openclass: { title: '수업공개의 날', rootPath: 'images/연구학교 수업공개의 날' }
         };
 
         const urlParams = new URLSearchParams(window.location.search);
@@ -89,7 +97,7 @@
         const config = CATEGORY_CONFIG[currentCategory];
 
         // 상태 관리 변수
-        const ROOT_PATH = config.rootPath; // 절대 넘지 못하는 최상위 한계선
+        const ROOT_PATH = config.rootPath; // 절대 넘지 못하는 상위 한계선
         let currentPath = config.rootPath; // 현재 탐색 중인 경로 위치
         let currentSelectedFileUrl = '';
         let currentSelectedFileType = '';
@@ -103,27 +111,32 @@
             document.getElementById('treeLoading').classList.remove('hidden');
             document.getElementById('fileTree').classList.add('hidden');
             document.getElementById('folderPathDisplay').innerText = currentPath;
-        
+
+            // 상위 이동 버튼 활성화/비활성화 제어 (보안 한계선 작동)
+            const upBtn = document.getElementById('upFolderBtn');
             if (currentPath === ROOT_PATH) {
-                document.getElementById('upFolderBtn').disabled = true;
+                upBtn.disabled = true; 
             } else {
-                document.getElementById('upFolderBtn').disabled = false;
+                upBtn.disabled = false;
             }
-        
+
             const encodedPath = encodeURIComponent(currentPath);
             const apiUrl = `https://api.github.com/repos/${GITHUB_USERNAME}/${GITHUB_REPO}/contents/${encodedPath}`;
-        
+
             try {
-                const response = await fetch(apiUrl, {
-                    headers: {
-                        // 💡여기에 방금 발급받은 토큰 코드를 넣어줍니다.
-                        "Authorization": "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"
-                    }
-                });
+                // 토큰 설정 옵션 처리
+                const fetchOptions = {};
+                if (typeof GITHUB_TOKEN !== 'undefined' && GITHUB_TOKEN) {
+                    fetchOptions.headers = { "Authorization": `token ${GITHUB_TOKEN}` };
+                }
+
+                const response = await fetch(apiUrl, fetchOptions);
                 if (!response.ok) throw new Error('디렉토리를 읽어오지 못했습니다.');
                 const data = await response.json();
                 
+                // 가독성을 위해 폴더가 먼저 나오고 파일이 나오도록 정렬
                 data.sort((a, b) => (b.type === 'dir') - (a.type === 'dir'));
+                
                 renderExplorer(data);
             } catch (error) {
                 console.error(error);
@@ -140,18 +153,17 @@
             treeContainer.classList.remove('hidden');
             treeContainer.innerHTML = '';
 
-            // 지원하는 미디어 파일 확장자 정의
             const imgExts = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
             
             items.forEach(item => {
                 const itemEl = document.createElement('div');
                 
                 if (item.type === 'dir') {
-                    // 📁 [폴더 노드 디자인] -> 클릭 시 하위 진입
+                    // 📁 [폴더 노드 디자인]
                     itemEl.className = "flex items-center gap-2 text-slate-300 hover:text-amber-400 hover:bg-slate-800/40 py-2 px-2.5 rounded cursor-pointer transition-colors font-medium";
                     itemEl.innerHTML = `<i class="fa-solid fa-folder text-amber-500 shrink-0"></i> <span class="truncate">${item.name}</span>`;
                     itemEl.onclick = () => {
-                        currentPath = item.path; // 경로 갱신 후 재스캔
+                        currentPath = item.path; 
                         fetchDirectoryContents();
                     };
                 } else {
@@ -169,9 +181,12 @@
                         icon = `<i class="fa-regular fa-file-pdf text-rose-400 shrink-0"></i>`;
                         isSupported = true;
                         type = 'pdf';
+                    } else if (ext === 'mp4') {
+                        icon = `<i class="fa-regular fa-file-video text-teal-400 shrink-0"></i>`;
+                        isSupported = true;
+                        type = 'video';
                     }
 
-                    // 보여줄 수 없는 일반 포맷(hwp, docx 등)은 회색 처리
                     if (!isSupported) {
                         itemEl.className = "flex items-center gap-2 text-slate-600 py-2 px-2.5 text-xs opacity-60 cursor-not-allowed";
                         itemEl.innerHTML = `${icon} <span class="truncate">${item.name} (미지원)</span>`;
@@ -194,34 +209,40 @@
             }
         }
 
-        // [상위 폴더 이동 기능] 보안 한계선 안에서만 작동하도록 파싱
+        // [상위 폴더 이동 기능] 보안 가드 작동
         function navigateUp() {
-            if (currentPath === ROOT_PATH) return; // 한계 도달 시 강제 무효화
+            if (currentPath === ROOT_PATH) return; 
 
             const pathParts = currentPath.split('/');
-            pathParts.pop(); // 맨 마지막 폴더 경로 제거
+            pathParts.pop(); 
             currentPath = pathParts.join('/');
             
             fetchDirectoryContents();
         }
 
-        // 우측 통합 멀티 뷰어 제어 로직 (이미지 및 PDF 지원)
+        // 우측 통합 멀티 뷰어 제어 로직 (이미지, PDF, 동영상 완벽 분기)
         function displayContent(downloadUrl, fileName, type) {
             document.getElementById('noSelectMessage').classList.add('hidden');
             document.getElementById('viewerContainer').classList.remove('hidden');
-            
             document.getElementById('currentFileTitle').innerText = fileName;
             
             const imgViewer = document.getElementById('imageViewer');
             const pdfViewer = document.getElementById('pdfViewer');
+            const videoViewer = document.getElementById('videoViewer');
+            const videoSource = document.getElementById('videoSource');
             const hint = document.getElementById('viewerHint');
-        
+
             currentSelectedFileUrl = downloadUrl;
             currentSelectedFileType = type;
-        
+
+            // 다른 파일로 변경될 때 비디오 스트리밍 강제 일시정지 및 비우기
+            videoViewer.pause();
+            videoSource.src = "";
+
             if (type === 'image') {
                 pdfViewer.classList.add('hidden');
                 pdfViewer.src = "";
+                videoViewer.classList.add('hidden');
                 
                 imgViewer.classList.remove('hidden');
                 imgViewer.src = downloadUrl;
@@ -229,18 +250,30 @@
             } else if (type === 'pdf') {
                 imgViewer.classList.add('hidden');
                 imgViewer.src = "";
+                videoViewer.classList.add('hidden');
                 
                 pdfViewer.classList.remove('hidden');
-                hint.classList.add('invisible'); // PDF는 내부 뷰어 자체 툴바가 있으므로 힌트 제거
+                hint.classList.add('invisible');
                 
-                // 💡 [핵심 수정] GitHub raw 주소를 구글 문서 뷰어 엔진과 결합하여 iframe에 주입합니다.
-                // 이렇게 하면 브라우저 보안 차단을 우회하여 PDF가 정상적으로 렌더링됩니다.
+                // 구글 문서 뷰어 주소를 결합하여 iframe 보안 인코딩 차단 우회
                 const googlePdfViewerUrl = `https://docs.google.com/gview?url=${encodeURIComponent(downloadUrl)}&embedded=true`;
                 pdfViewer.src = googlePdfViewerUrl;
+            } else if (type === 'video') {
+                imgViewer.classList.add('hidden');
+                imgViewer.src = "";
+                pdfViewer.classList.add('hidden');
+                pdfViewer.src = "";
+                
+                videoViewer.classList.remove('hidden');
+                hint.classList.add('invisible');
+                
+                // 미디어 엔진에 동영상 소스 주입 및 리로드
+                videoSource.src = downloadUrl;
+                videoViewer.load(); 
             }
         }
 
-        // 파일 클릭 시 새 창 전체화면 팝업 처리
+        // 이미지 클릭 시 별도 전체화면 창 활성화
         function openFullImage() {
             if (currentSelectedFileUrl && currentSelectedFileType === 'image') {
                 const newWindow = window.open("", "_blank");
@@ -249,12 +282,12 @@
                     <head>
                         <title>${document.getElementById('currentFileTitle').innerText} - 전체보기</title>
                         <style>
-                            body { margin: 0; background: #0f172a; display: flex; justify-content: center; align-items: center; min-height: 100vh; overflow:hidden; }
+                            body { margin: 0; background: #0f172a; display: flex; justify-content: center; align-items: center; min-height: 100vh; overflow: hidden; }
                             img { max-width: 100%; max-height: 100vh; object-fit: contain; cursor: zoom-out; }
                         </style>
                     </head>
                     <body>
-                        <img src="${currentSelectedFileUrl}" onclick="window.close()" title="클릭하면 창이 닫힙니다.">
+                        <img src="${currentSelectedFileUrl}" onclick="window.close()" title="클릭하시면 창이 닫힙니다.">
                     </body>
                     </html>
                 `);
